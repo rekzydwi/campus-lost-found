@@ -2,10 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { connectToDatabase } from "@/lib/mongodb";
 import Item from "@/models/Item";
+import cloudinary from "@/lib/cloudinary";
 
 export const runtime = "nodejs";
 
-// GET — ambil detail satu laporan
+// GET — tetap sama seperti sebelumnya
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -41,7 +42,7 @@ export async function GET(
   }
 }
 
-// PUT — edit laporan
+// PUT — update dengan hapus foto lama jika ada foto baru
 export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -57,7 +58,7 @@ export async function PUT(
 
     const { id } = await params;
     const body = await request.json();
-    const { title, description, category, status, location } = body;
+    const { title, description, category, status, location, image, imagePublicId } = body;
 
     if (!title || !description || !category || !status || !location) {
       return NextResponse.json(
@@ -68,9 +69,17 @@ export async function PUT(
 
     await connectToDatabase();
 
+    // Kalau ada foto baru, hapus foto lama dari Cloudinary
+    if (imagePublicId) {
+      const oldItem = await Item.findOne({ _id: id, userId: session.user.id });
+      if (oldItem?.imagePublicId) {
+        await cloudinary.uploader.destroy(oldItem.imagePublicId);
+      }
+    }
+
     const item = await Item.findOneAndUpdate(
       { _id: id, userId: session.user.id },
-      { title, description, category, status, location },
+      { title, description, category, status, location, image, imagePublicId },
       { new: true }
     );
 
@@ -91,7 +100,7 @@ export async function PUT(
   }
 }
 
-// DELETE — hapus laporan
+// DELETE — hapus laporan beserta fotonya
 export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -108,10 +117,7 @@ export async function DELETE(
     const { id } = await params;
     await connectToDatabase();
 
-    const item = await Item.findOneAndDelete({
-      _id: id,
-      userId: session.user.id,
-    });
+    const item = await Item.findOne({ _id: id, userId: session.user.id });
 
     if (!item) {
       return NextResponse.json(
@@ -119,6 +125,13 @@ export async function DELETE(
         { status: 404 }
       );
     }
+
+    // Hapus foto dari Cloudinary kalau ada
+    if (item.imagePublicId) {
+      await cloudinary.uploader.destroy(item.imagePublicId);
+    }
+
+    await Item.findByIdAndDelete(id);
 
     return NextResponse.json({ message: "Laporan berhasil dihapus" });
   } catch (error) {

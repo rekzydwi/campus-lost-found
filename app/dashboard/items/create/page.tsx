@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
 
 const CATEGORIES = [
   "Elektronik",
@@ -23,12 +24,24 @@ export default function CreateItemPage() {
     status: "hilang",
     location: "",
   });
+  const [file, setFile] = useState<File | null>(null);
+  const [preview, setPreview] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+  const handleChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
+  ) => {
     const { name, value } = e.target as HTMLInputElement;
     setForm((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selected = e.target.files?.[0];
+    if (selected) {
+      setFile(selected);
+      setPreview(URL.createObjectURL(selected));
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -37,10 +50,42 @@ export default function CreateItemPage() {
     setLoading(true);
 
     try {
+      let image = "";
+      let imagePublicId = "";
+
+      if (file) {
+        const uploadData = new FormData();
+        uploadData.append("file", file);
+
+        const uploadRes = await fetch("/api/upload", {
+          method: "POST",
+          body: uploadData,
+        });
+
+        const uploadResult = await uploadRes.json();
+
+        if (!uploadRes.ok) {
+          setError(uploadResult.message);
+          setLoading(false);
+          return;
+        }
+
+        image = uploadResult.url;
+        imagePublicId = uploadResult.publicId;
+      }
+
       const response = await fetch("/api/items", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
+        body: JSON.stringify({
+          title: form.title,
+          description: form.description,
+          category: form.category,
+          status: form.status,
+          location: form.location,
+          image,
+          imagePublicId,
+        }),
       });
 
       const data = await response.json();
@@ -63,10 +108,7 @@ export default function CreateItemPage() {
     <main className="min-h-screen bg-slate-50">
       <nav className="bg-white border-b border-slate-200">
         <div className="mx-auto max-w-3xl px-6 py-4 flex items-center gap-4">
-          <Link
-            href="/dashboard"
-            className="text-slate-500 hover:text-slate-700 transition"
-          >
+          <Link href="/dashboard" className="text-slate-500 hover:text-slate-700 transition">
             ← Kembali
           </Link>
           <h1 className="font-bold text-slate-900">Buat Laporan Baru</h1>
@@ -123,9 +165,7 @@ export default function CreateItemPage() {
               >
                 <option value="">Pilih kategori</option>
                 {CATEGORIES.map((cat) => (
-                  <option key={cat} value={cat}>
-                    {cat}
-                  </option>
+                  <option key={cat} value={cat}>{cat}</option>
                 ))}
               </select>
             </div>
@@ -156,6 +196,28 @@ export default function CreateItemPage() {
                 placeholder="Jelaskan ciri-ciri barang secara detail..."
                 className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-900 resize-none"
               />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">
+                Foto Barang (opsional)
+              </label>
+              <input
+                type="file"
+                accept="image/*"
+                onChange={handleFileChange}
+                className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-900 file:mr-4 file:py-1 file:px-3 file:rounded-lg file:border-0 file:bg-indigo-50 file:text-indigo-700 file:text-sm"
+              />
+              {preview && (
+                <div className="mt-3 relative w-full h-48 rounded-xl overflow-hidden border border-slate-200">
+                  <Image
+                    src={preview}
+                    alt="Preview foto"
+                    fill
+                    className="object-cover"
+                  />
+                </div>
+              )}
             </div>
 
             <button

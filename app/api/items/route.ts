@@ -5,7 +5,6 @@ import Item from "@/models/Item";
 
 export const runtime = "nodejs";
 
-// GET — ambil semua laporan milik user yang login
 export async function GET() {
   try {
     const session = await auth();
@@ -32,7 +31,6 @@ export async function GET() {
   }
 }
 
-// POST — buat laporan baru
 export async function POST(request: NextRequest) {
   try {
     const session = await auth();
@@ -45,7 +43,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { title, description, category, status, location } = body;
+    const { title, description, category, status, location, image, imagePublicId } = body;
 
     if (!title || !description || !category || !status || !location) {
       return NextResponse.json(
@@ -62,6 +60,8 @@ export async function POST(request: NextRequest) {
       category,
       status,
       location,
+      image: image || "",
+      imagePublicId: imagePublicId || "",
       userId: session.user.id,
     });
 

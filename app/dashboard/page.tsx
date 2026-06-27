@@ -3,8 +3,9 @@ import { signOut } from "@/auth";
 import { connectToDatabase } from "@/lib/mongodb";
 import Item from "@/models/Item";
 import Link from "next/link";
+import Image from "next/image";
 
-interface Item {
+interface ItemData {
   _id: string;
   title: string;
   description: string;
@@ -12,9 +13,11 @@ interface Item {
   status: "hilang" | "ditemukan";
   location: string;
   image: string;
+  imagePublicId: string;
   userId: string;
   createdAt: Date;
 }
+
 
 async function getItems(userId: string) {
   await connectToDatabase();
@@ -90,7 +93,7 @@ export default async function DashboardPage() {
         ) : (
           <div className="grid gap-4">
             {items.map((item) => (
-              <ItemCard key={String(item._id)} item={item as unknown as Item} />
+              <ItemCard key={String(item._id)} item={item as unknown as ItemData} />
             ))}
           </div>
         )}
@@ -99,13 +102,24 @@ export default async function DashboardPage() {
   );
 }
 
-function ItemCard({ item }: { item: Item }) {
+function ItemCard({ item }: { item: ItemData }) {
   return (
     <div className="bg-white rounded-2xl border border-slate-200 p-6 flex items-center justify-between">
       <div className="flex items-center gap-4">
-        <div className="h-14 w-14 rounded-xl bg-slate-100 flex items-center justify-center text-2xl">
-          {item.status === "hilang" ? "🔍" : "✅"}
-        </div>
+        {item.image ? (
+          <div className="relative h-14 w-14 rounded-xl overflow-hidden border border-slate-200 flex-shrink-0">
+            <Image
+              src={item.image}
+              alt={item.title}
+              fill
+              className="object-cover"
+            />
+          </div>
+        ) : (
+          <div className="h-14 w-14 rounded-xl bg-slate-100 flex items-center justify-center text-2xl flex-shrink-0">
+            {item.status === "hilang" ? "🔍" : "✅"}
+          </div>
+        )}
         <div>
           <div className="flex items-center gap-2 mb-1">
             <p className="font-semibold text-slate-900">{item.title}</p>
@@ -134,12 +148,12 @@ function ItemCard({ item }: { item: Item }) {
 
       <div className="flex items-center gap-2">
         <Link
-          href={`/dashboard/items/${item._id.toString()}/edit`}
+          href={`/dashboard/items/${String(item._id)}/edit`}
           className="px-4 py-2 rounded-xl bg-slate-100 text-slate-700 text-sm font-medium hover:bg-slate-200 transition"
         >
           Edit
         </Link>
-        <DeleteButton id={item._id.toString()} />
+        <DeleteButton id={String(item._id)} />
       </div>
     </div>
   );
