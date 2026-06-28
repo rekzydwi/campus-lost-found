@@ -181,13 +181,17 @@ function PublicItemCard({
         )}
         <div>
           <div className="flex items-center gap-2 mb-1">
-            <p className="font-semibold text-slate-900">{item.title}</p>
+            <Link
+              href={`/laporan/${String(item._id)}`}
+              className="font-semibold text-slate-900 hover:text-indigo-600 transition"
+            >
+              {item.title}
+            </Link>
             <span
-              className={`px-2 py-0.5 rounded-full text-xs font-medium ${
-                item.status === "hilang"
+              className={`px-2 py-0.5 rounded-full text-xs font-medium ${item.status === "hilang"
                   ? "bg-red-50 text-red-600"
                   : "bg-green-50 text-green-600"
-              }`}
+                }`}
             >
               {item.status === "hilang" ? "Hilang" : "Ditemukan"}
             </span>

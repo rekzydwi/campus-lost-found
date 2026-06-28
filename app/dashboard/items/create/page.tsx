@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
+import Toast from "@/app/components/Toast";
 
 const CATEGORIES = [
   "Elektronik",
@@ -28,6 +29,10 @@ export default function CreateItemPage() {
   const [preview, setPreview] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [toast, setToast] = useState<{
+    message: string;
+    type: "success" | "error";
+  } | null>(null);
 
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
@@ -66,7 +71,7 @@ export default function CreateItemPage() {
 
         if (!uploadRes.ok) {
           setError(uploadResult.message);
-          setLoading(false);
+          setToast({ message: uploadResult.message, type: "error" });
           return;
         }
 
@@ -92,13 +97,18 @@ export default function CreateItemPage() {
 
       if (!response.ok) {
         setError(data.message);
+        setToast({ message: data.message, type: "error" });
         return;
       }
 
-      router.push("/dashboard");
-      router.refresh();
+      setToast({ message: "Laporan berhasil dibuat!", type: "success" });
+      setTimeout(() => {
+        router.push("/dashboard");
+        router.refresh();
+      }, 1000);
     } catch {
       setError("Terjadi kesalahan. Coba lagi.");
+      setToast({ message: "Terjadi kesalahan. Coba lagi.", type: "error" });
     } finally {
       setLoading(false);
     }
@@ -106,6 +116,14 @@ export default function CreateItemPage() {
 
   return (
     <main className="min-h-screen bg-slate-50">
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast(null)}
+        />
+      )}
+
       <nav className="bg-white border-b border-slate-200">
         <div className="mx-auto max-w-3xl px-6 py-4 flex items-center gap-4">
           <Link href="/dashboard" className="text-slate-500 hover:text-slate-700 transition">
@@ -193,7 +211,8 @@ export default function CreateItemPage() {
                 value={form.description}
                 onChange={handleChange}
                 rows={4}
-                placeholder="Jelaskan ciri-ciri barang secara detail..."
+                // DENGAN ini:
+placeholder="Jelaskan ciri-ciri barang secara detail. Sertakan nomor WhatsApp kamu agar orang lain bisa menghubungimu. Contoh: Tas hitam merk Eiger, ditemukan di meja kantin. Hubungi: 0812xxxx"
                 className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-900 resize-none"
               />
             </div>

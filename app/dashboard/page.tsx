@@ -5,6 +5,7 @@ import Item from "@/models/Item";
 import Link from "next/link";
 import Image from "next/image";
 import SearchFilter from "./SearchFilter";
+import DeleteButton from "./DeleteButton";
 
 interface ItemData {
   _id: string;
@@ -213,28 +214,5 @@ function ItemCard({ item }: { item: ItemData }) {
         <DeleteButton id={String(item._id)} />
       </div>
     </div>
-  );
-}
-
-function DeleteButton({ id }: { id: string }) {
-  return (
-    <form
-      action={async () => {
-        "use server";
-        const { connectToDatabase } = await import("@/lib/mongodb");
-        const Item = (await import("@/models/Item")).default;
-        const { revalidatePath } = await import("next/cache");
-        await connectToDatabase();
-        await Item.findByIdAndDelete(id);
-        revalidatePath("/dashboard");
-      }}
-    >
-      <button
-        type="submit"
-        className="px-4 py-2 rounded-xl bg-red-50 text-red-600 text-sm font-medium hover:bg-red-100 transition"
-      >
-        Hapus
-      </button>
-    </form>
   );
 }
