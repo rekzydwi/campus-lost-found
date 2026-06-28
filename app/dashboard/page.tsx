@@ -4,6 +4,7 @@ import { connectToDatabase } from "@/lib/mongodb";
 import Item from "@/models/Item";
 import Link from "next/link";
 import Image from "next/image";
+import SearchFilter from "./SearchFilter";
 
 interface ItemData {
   _id: string;
@@ -18,16 +19,34 @@ interface ItemData {
   createdAt: Date;
 }
 
-
 async function getItems(userId: string) {
   await connectToDatabase();
   const items = await Item.find({ userId }).sort({ createdAt: -1 }).lean();
   return items;
 }
 
-export default async function DashboardPage() {
+export default async function DashboardPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ status?: string; search?: string }>;
+}) {
   const session = await auth();
-  const items = await getItems(session?.user?.id as string);
+  const allItems = await getItems(session?.user?.id as string);
+  const { status, search } = await searchParams;
+
+  // Filter di sisi server
+  const filteredItems = allItems.filter((item) => {
+    const matchStatus = !status || status === "semua" || item.status === status;
+    const matchSearch =
+      !search ||
+      item.title.toLowerCase().includes(search.toLowerCase());
+    return matchStatus && matchSearch;
+  });
+
+  // Statistik
+  const totalItems = allItems.length;
+  const hilangCount = allItems.filter((i) => i.status === "hilang").length;
+  const ditemukanCount = allItems.filter((i) => i.status === "ditemukan").length;
 
   return (
     <main className="min-h-screen bg-slate-50">
@@ -65,13 +84,31 @@ export default async function DashboardPage() {
       </nav>
 
       <section className="mx-auto max-w-6xl px-6 py-10">
-        <div className="mb-8 flex items-center justify-between">
+
+        {/* Statistik */}
+        <div className="grid grid-cols-3 gap-4 mb-8">
+          <div className="bg-white rounded-2xl border border-slate-200 p-5 text-center">
+            <p className="text-3xl font-bold text-slate-900">{totalItems}</p>
+            <p className="text-sm text-slate-500 mt-1">Total Laporan</p>
+          </div>
+          <div className="bg-white rounded-2xl border border-red-100 p-5 text-center">
+            <p className="text-3xl font-bold text-red-500">{hilangCount}</p>
+            <p className="text-sm text-slate-500 mt-1">Barang Hilang</p>
+          </div>
+          <div className="bg-white rounded-2xl border border-green-100 p-5 text-center">
+            <p className="text-3xl font-bold text-green-500">{ditemukanCount}</p>
+            <p className="text-sm text-slate-500 mt-1">Barang Ditemukan</p>
+          </div>
+        </div>
+
+        {/* Header & Tombol Buat */}
+        <div className="mb-6 flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold text-slate-900">
               Laporan Barang
             </h1>
             <p className="text-slate-500 mt-1">
-              {items.length} laporan ditemukan
+              {filteredItems.length} laporan ditemukan
             </p>
           </div>
           <Link
@@ -82,21 +119,36 @@ export default async function DashboardPage() {
           </Link>
         </div>
 
-        {items.length === 0 ? (
-          <div className="bg-white rounded-2xl border border-slate-200 p-12 text-center">
-            <p className="text-4xl mb-4">📋</p>
-            <p className="font-semibold text-slate-900">Belum ada laporan</p>
-            <p className="text-slate-500 mt-1 text-sm">
-              Buat laporan pertama kamu dengan klik tombol di atas
-            </p>
-          </div>
-        ) : (
-          <div className="grid gap-4">
-            {items.map((item) => (
-              <ItemCard key={String(item._id)} item={item as unknown as ItemData} />
-            ))}
-          </div>
-        )}
+        {/* Search & Filter */}
+        <SearchFilter currentStatus={status} currentSearch={search} />
+
+        {/* Daftar Laporan */}
+        <div className="mt-6">
+          {filteredItems.length === 0 ? (
+            <div className="bg-white rounded-2xl border border-slate-200 p-12 text-center">
+              <p className="text-4xl mb-4">📋</p>
+              <p className="font-semibold text-slate-900">
+                {allItems.length === 0
+                  ? "Belum ada laporan"
+                  : "Tidak ada laporan yang cocok"}
+              </p>
+              <p className="text-slate-500 mt-1 text-sm">
+                {allItems.length === 0
+                  ? "Buat laporan pertama kamu dengan klik tombol di atas"
+                  : "Coba ubah filter atau kata pencarian"}
+              </p>
+            </div>
+          ) : (
+            <div className="grid gap-4">
+              {filteredItems.map((item) => (
+                <ItemCard
+                  key={String(item._id)}
+                  item={item as unknown as ItemData}
+                />
+              ))}
+            </div>
+          )}
+        </div>
       </section>
     </main>
   );
