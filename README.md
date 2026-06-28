@@ -167,21 +167,6 @@ Buka [http://localhost:3000](http://localhost:3000) di browser.
 
 ---
 
-## 📅 Log Pengembangan
-
-| Hari | Tanggal | Yang Dikerjakan |
-|---|---|---|
-| 1 | 21 Juni 2026 | Setup project Next.js, Tailwind CSS, GitHub |
-| 2 | 22 Juni 2026 | Koneksi MongoDB Atlas, Mongoose, health endpoint |
-| 3 | 23-25 Juni 2026 | Autentikasi NextAuth, register, login, middleware |
-| 4 | 26 Juni 2026 | CRUD laporan barang, model Item |
-| 5 | 27 Juni 2026 | Upload foto via Cloudinary |
-| 6 | 28 Juni 2026 | Filter, search, statistik, halaman publik |
-| 7 | 28 Juni 2026 | Toast notifikasi, konfirmasi hapus, halaman 404 |
-| 8 | 29 Juni 2026 | Detail laporan, README, final cleanup |
-
----
-
 ## 👨‍💻 Developer
 
 **Rekzy Dwi Permana**
