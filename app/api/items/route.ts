@@ -5,7 +5,8 @@ import Item from "@/models/Item";
 
 export const runtime = "nodejs";
 
-export async function GET() {
+// Satu fungsi GET yang menangani dua kasus
+export async function GET(request: NextRequest) {
   try {
     const session = await auth();
 
@@ -18,8 +19,15 @@ export async function GET() {
 
     await connectToDatabase();
 
-    const items = await Item.find({ userId: session.user.id })
-      .sort({ createdAt: -1 });
+    const { searchParams } = new URL(request.url);
+    const all = searchParams.get("all");
+
+    const items =
+      all === "true"
+        ? await Item.find({}).sort({ createdAt: -1 }).lean()
+        : await Item.find({ userId: session.user.id })
+            .sort({ createdAt: -1 })
+            .lean();
 
     return NextResponse.json({ items });
   } catch (error) {

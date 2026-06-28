@@ -1,10 +1,10 @@
 import { auth } from "@/auth";
-import { signOut } from "@/auth";
 import { connectToDatabase } from "@/lib/mongodb";
 import Item from "@/models/Item";
+import User from "@/models/User";
 import Link from "next/link";
 import Image from "next/image";
-import SearchFilter from "./SearchFilter";
+import PublicSearchFilter from "./PublicSearchFilter";
 
 interface ItemData {
   _id: string;
@@ -17,24 +17,38 @@ interface ItemData {
   imagePublicId: string;
   userId: string;
   createdAt: Date;
+  userName?: string;
 }
 
-async function getItems(userId: string) {
+async function getAllItems() {
   await connectToDatabase();
-  const items = await Item.find({ userId }).sort({ createdAt: -1 }).lean();
-  return items;
+  const items = await Item.find({})
+    .sort({ createdAt: -1 })
+    .lean();
+
+  // Ambil nama user untuk setiap laporan
+  const itemsWithUser = await Promise.all(
+    items.map(async (item) => {
+      const user = await User.findById(item.userId).lean();
+      return {
+        ...item,
+        userName: (user as { name?: string } | null)?.name || "Pengguna",
+      };
+    })
+  );
+
+  return itemsWithUser;
 }
 
-export default async function DashboardPage({
+export default async function LaporanPage({
   searchParams,
 }: {
   searchParams: Promise<{ status?: string; search?: string }>;
 }) {
   const session = await auth();
-  const allItems = await getItems(session?.user?.id as string);
+  const allItems = await getAllItems();
   const { status, search } = await searchParams;
 
-  // Filter di sisi server
   const filteredItems = allItems.filter((item) => {
     const matchStatus = !status || status === "semua" || item.status === status;
     const matchSearch =
@@ -43,13 +57,12 @@ export default async function DashboardPage({
     return matchStatus && matchSearch;
   });
 
-  // Statistik
-  const totalItems = allItems.length;
   const hilangCount = allItems.filter((i) => i.status === "hilang").length;
   const ditemukanCount = allItems.filter((i) => i.status === "ditemukan").length;
 
   return (
     <main className="min-h-screen bg-slate-50">
+      {/* Navbar */}
       <nav className="bg-white border-b border-slate-200">
         <div className="mx-auto max-w-6xl px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -58,43 +71,32 @@ export default async function DashboardPage({
             </div>
             <div>
               <p className="font-bold text-slate-900">Campus Lost & Found</p>
-              <p className="text-xs text-slate-500">Dashboard</p>
+              <p className="text-xs text-slate-500">Semua Laporan</p>
             </div>
           </div>
 
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
             <Link
-              href="/laporan"
-              className="px-4 py-2 rounded-xl border border-indigo-200 bg-indigo-50 text-indigo-600 text-sm font-medium hover:bg-indigo-100 transition"
+              href="/dashboard"
+              className="px-4 py-2 rounded-xl bg-slate-100 text-slate-700 text-sm font-medium hover:bg-slate-200 transition"
             >
-              Semua Laporan
+              Dashboard Saya
             </Link>
-            <span className="text-sm text-slate-600">
-              Halo, <strong>{session?.user?.name}</strong>
-            </span>
-            <form
-              action={async () => {
-                "use server";
-                await signOut({ redirectTo: "/login" });
-              }}
+            <Link
+              href="/dashboard/items/create"
+              className="px-4 py-2 rounded-xl bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700 transition"
             >
-              <button
-                type="submit"
-                className="px-4 py-2 rounded-xl bg-slate-100 text-slate-700 text-sm font-medium hover:bg-slate-200 transition"
-              >
-                Keluar
-              </button>
-            </form>
+              + Buat Laporan
+            </Link>
           </div>
         </div>
       </nav>
 
       <section className="mx-auto max-w-6xl px-6 py-10">
-
         {/* Statistik */}
         <div className="grid grid-cols-3 gap-4 mb-8">
           <div className="bg-white rounded-2xl border border-slate-200 p-5 text-center">
-            <p className="text-3xl font-bold text-slate-900">{totalItems}</p>
+            <p className="text-3xl font-bold text-slate-900">{allItems.length}</p>
             <p className="text-sm text-slate-500 mt-1">Total Laporan</p>
           </div>
           <div className="bg-white rounded-2xl border border-red-100 p-5 text-center">
@@ -107,26 +109,16 @@ export default async function DashboardPage({
           </div>
         </div>
 
-        {/* Header & Tombol Buat */}
-        <div className="mb-6 flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-slate-900">
-              Laporan Barang
-            </h1>
-            <p className="text-slate-500 mt-1">
-              {filteredItems.length} laporan ditemukan
-            </p>
-          </div>
-          <Link
-            href="/dashboard/items/create"
-            className="px-5 py-2.5 rounded-xl bg-indigo-600 text-white font-semibold hover:bg-indigo-700 transition"
-          >
-            + Buat Laporan
-          </Link>
+        {/* Header */}
+        <div className="mb-6">
+          <h1 className="text-2xl font-bold text-slate-900">Semua Laporan</h1>
+          <p className="text-slate-500 mt-1">
+            {filteredItems.length} laporan ditemukan dari seluruh pengguna
+          </p>
         </div>
 
         {/* Search & Filter */}
-        <SearchFilter currentStatus={status} currentSearch={search} />
+        <PublicSearchFilter currentStatus={status} currentSearch={search} />
 
         {/* Daftar Laporan */}
         <div className="mt-6">
@@ -140,16 +132,17 @@ export default async function DashboardPage({
               </p>
               <p className="text-slate-500 mt-1 text-sm">
                 {allItems.length === 0
-                  ? "Buat laporan pertama kamu dengan klik tombol di atas"
+                  ? "Jadilah yang pertama membuat laporan"
                   : "Coba ubah filter atau kata pencarian"}
               </p>
             </div>
           ) : (
             <div className="grid gap-4">
               {filteredItems.map((item) => (
-                <ItemCard
+                <PublicItemCard
                   key={String(item._id)}
                   item={item as unknown as ItemData}
+                  currentUserId={session?.user?.id || ""}
                 />
               ))}
             </div>
@@ -160,7 +153,15 @@ export default async function DashboardPage({
   );
 }
 
-function ItemCard({ item }: { item: ItemData }) {
+function PublicItemCard({
+  item,
+  currentUserId,
+}: {
+  item: ItemData;
+  currentUserId: string;
+}) {
+  const isOwner = String(item.userId) === currentUserId;
+
   return (
     <div className="bg-white rounded-2xl border border-slate-200 p-6 flex items-center justify-between">
       <div className="flex items-center gap-4">
@@ -182,18 +183,25 @@ function ItemCard({ item }: { item: ItemData }) {
           <div className="flex items-center gap-2 mb-1">
             <p className="font-semibold text-slate-900">{item.title}</p>
             <span
-              className={`px-2 py-0.5 rounded-full text-xs font-medium ${item.status === "hilang"
+              className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+                item.status === "hilang"
                   ? "bg-red-50 text-red-600"
                   : "bg-green-50 text-green-600"
-                }`}
+              }`}
             >
               {item.status === "hilang" ? "Hilang" : "Ditemukan"}
             </span>
+            {isOwner && (
+              <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-indigo-50 text-indigo-600">
+                Laporan Saya
+              </span>
+            )}
           </div>
           <p className="text-sm text-slate-500">
             {item.category} • {item.location}
           </p>
           <p className="text-xs text-slate-400 mt-1">
+            Dilaporkan oleh <strong>{item.userName}</strong> •{" "}
             {new Date(item.createdAt).toLocaleDateString("id-ID", {
               day: "numeric",
               month: "long",
@@ -203,38 +211,17 @@ function ItemCard({ item }: { item: ItemData }) {
         </div>
       </div>
 
-      <div className="flex items-center gap-2">
-        <Link
-          href={`/dashboard/items/${String(item._id)}/edit`}
-          className="px-4 py-2 rounded-xl bg-slate-100 text-slate-700 text-sm font-medium hover:bg-slate-200 transition"
-        >
-          Edit
-        </Link>
-        <DeleteButton id={String(item._id)} />
-      </div>
+      {/* Hanya pemilik yang bisa edit/hapus */}
+      {isOwner && (
+        <div className="flex items-center gap-2">
+          <Link
+            href={`/dashboard/items/${String(item._id)}/edit`}
+            className="px-4 py-2 rounded-xl bg-slate-100 text-slate-700 text-sm font-medium hover:bg-slate-200 transition"
+          >
+            Edit
+          </Link>
+        </div>
+      )}
     </div>
-  );
-}
-
-function DeleteButton({ id }: { id: string }) {
-  return (
-    <form
-      action={async () => {
-        "use server";
-        const { connectToDatabase } = await import("@/lib/mongodb");
-        const Item = (await import("@/models/Item")).default;
-        const { revalidatePath } = await import("next/cache");
-        await connectToDatabase();
-        await Item.findByIdAndDelete(id);
-        revalidatePath("/dashboard");
-      }}
-    >
-      <button
-        type="submit"
-        className="px-4 py-2 rounded-xl bg-red-50 text-red-600 text-sm font-medium hover:bg-red-100 transition"
-      >
-        Hapus
-      </button>
-    </form>
   );
 }
